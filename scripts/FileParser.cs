@@ -41,6 +41,24 @@ public class FileParser
     {
         Pointer = pointer;
     }
+    
+    public string GetLine()
+    {
+        var line = string.Empty;
+
+        while (true)
+        {
+            Pointer++;
+            var character = Encoding.UTF8.GetString(Buffer, Pointer - 1, 1);
+
+            if (character == "\n")
+                break;
+
+            line += character;
+        }
+
+        return line;
+    }
 
     public string GetString(int length)
     {

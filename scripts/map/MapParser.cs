@@ -151,7 +151,7 @@ public partial class MapParser : Node
 				map = PHXM(path);
 				break;
 			case "sspm":
-				map = SSPMV2(path);
+				map = SSPM(path);
 				break;
 			case "txt":
 				map = SSMapV1(path, audio);
@@ -185,11 +185,11 @@ public partial class MapParser : Node
 			string[] split = file.GetLine().Split(",");
 			Note[] notes = new Note[split.Length - 1];
 			byte[] audioBuffer = null;
-			
+
 			for (int i = 1; i < split.Length; i++)
 			{
 				string[] subsplit = split[i].Split("|");
-				
+
 				notes[i - 1] = new Note(i - 1, subsplit[2].ToInt(), -subsplit[0].ToFloat() + 1, subsplit[1].ToFloat() - 1);
 			}
 
@@ -201,7 +201,7 @@ public partial class MapParser : Node
 
 				audio.Close();
 			}
-			
+
 			map = new(path, notes, null, "", name, audioBuffer: audioBuffer);
 		}
 		catch (Exception exception)
@@ -215,7 +215,7 @@ public partial class MapParser : Node
 		return map;
 	}
 
-	public static Map SSPMV2(string path)
+	public static Map SSPM(string path)
 	{
 		FileParser file = new(path);
 		Map map;
@@ -227,27 +227,142 @@ public partial class MapParser : Node
 				throw new("Incorrect file signature");
 			}
 
-			if (file.GetUInt16() != 2)
+			ushort version = file.GetUInt16(); // SSPM version
+
+			if (version == 1)
 			{
-				throw new("Old SSPM format");
+				map = SSPMV1(file, path);
+			}
+			else if (version == 2)
+			{
+				map = SSPMV2(file, path);
+			}
+			else
+			{
+				throw new("Invalid SSPM version");
 			}
 
-			file.Skip(4);	// reserved
-			file.Skip(20);	// hash
+		}
+		catch (Exception exception)
+		{
+			ToastNotification.Notify($"SSPM file corrupted", 2);
+			throw Logger.Error($"SSPM file {path} corrupted; {exception.Message}");
+		}
+
+		return map;
+	}
+	
+	private static Map SSPMV1(FileParser file, string path = null)
+	{
+		Map map;
+		try
+		{
+			file.Skip(2); // reserved
+			string id = file.GetLine();
+
+			string[] mapName = file.GetLine().Split(" - ", 2);
+
+			string artist = null;
+			string song = null;
+
+			if (mapName.Length == 1)
+			{
+				song = mapName[0].StripEdges();
+			}
+			else
+			{
+				artist = mapName[0].StripEdges();
+				song = mapName[1].StripEdges();
+			}
+
+			string[] mappers = file.GetLine().Split(['&', ',']);
 
 			uint mapLength = file.GetUInt32();
 			uint noteCount = file.GetUInt32();
 
-			file.Skip(4);	// marker count
+			int difficulty = file.GetUInt8();
+
+			bool hasCover = file.GetUInt8() == 2;
+			byte[] coverBuffer = null;
+			if (hasCover)
+			{
+				int coverByteLength = (int)file.GetUInt64();
+				coverBuffer = file.Get(coverByteLength);
+			}
+
+			bool hasAudio = file.GetBool();
+			byte[] audioBuffer = null;
+			if (hasAudio)
+			{
+				int audioByteLength = (int)file.GetUInt64();
+				audioBuffer = file.Get(audioByteLength);
+			}
+
+			Note[] notes = new Note[noteCount];
+
+			for (int i = 0; i < noteCount; i++)
+			{
+				int millisecond = (int)file.GetUInt32();
+
+				bool isQuantum = file.GetBool();
+
+				float x;
+				float y;
+
+				if (isQuantum)
+				{
+					x = file.GetFloat();
+					y = file.GetFloat();
+				}
+				else
+				{
+					x = file.GetUInt8();
+					y = file.GetUInt8();
+				}
+
+				notes[i] = new Note(i, millisecond, x - 1, -y + 1);
+			}
+
+			Array.Sort(notes, new NoteComparer());
+
+			for (int i = 0; i < notes.Length; i++)
+			{
+				notes[i].Index = i;
+			}
+
+			map = new(path ?? $"{Phoenyx.Constants.UserFolder}/maps/{song}_temp.sspm", notes, id, artist, song, 0, mappers, difficulty, null, (int)mapLength, audioBuffer, coverBuffer);
+		}
+		catch (Exception exception)
+		{
+			ToastNotification.Notify($"SSPMV1 file corrupted", 2);
+			throw Logger.Error($"SSPMV1 file {path} corrupted; {exception.Message}");
+		}
+
+		return map;
+	}
+
+	public static Map SSPMV2(FileParser file, string path = null)
+	{
+		Map map;
+
+		try
+		{
+			file.Skip(4);   // reserved
+			file.Skip(20);  // hash
+
+			uint mapLength = file.GetUInt32();
+			uint noteCount = file.GetUInt32();
+
+			file.Skip(4);   // marker count
 
 			int difficulty = file.Get(1)[0];
 
-			file.Skip(2);	// map rating
+			file.Skip(2);   // map rating
 
 			bool hasAudio = file.GetBool();
 			bool hasCover = file.GetBool();
 
-			file.Skip(1);	// 1mod
+			file.Skip(1);   // 1mod
 
 			ulong customDataOffset = file.GetUInt64();
 			ulong customDataLength = file.GetUInt64();
@@ -258,18 +373,18 @@ public partial class MapParser : Node
 			ulong coverByteOffset = file.GetUInt64();
 			ulong coverByteLength = file.GetUInt64();
 
-			file.Skip(16);	// marker definitions offset & marker definitions length
+			file.Skip(16);  // marker definitions offset & marker definitions length
 
 			ulong markerByteOffset = file.GetUInt64();
-			
-			file.Skip(8);	// marker byte length (can just use notecount)
-			
+
+			file.Skip(8);   // marker byte length (can just use notecount)
+
 			uint mapIdLength = file.GetUInt16();
 			string id = file.GetString((int)mapIdLength);
-			
+
 			uint mapNameLength = file.GetUInt16();
 			string[] mapName = file.GetString((int)mapNameLength).Split(" - ", 2);
-			
+
 			string artist = null;
 			string song = null;
 
@@ -285,25 +400,25 @@ public partial class MapParser : Node
 
 			uint songNameLength = file.GetUInt16();
 
-			file.Skip((int)songNameLength);	// why is this different?
-			
+			file.Skip((int)songNameLength); // why is this different?
+
 			uint mapperCount = file.GetUInt16();
 			string[] mappers = new string[mapperCount];
-			
+
 			for (int i = 0; i < mapperCount; i++)
 			{
 				uint mapperNameLength = file.GetUInt16();
 
 				mappers[i] = file.GetString((int)mapperNameLength);
 			}
-			
+
 			byte[] audioBuffer = null;
 			byte[] coverBuffer = null;
 			string difficultyName = null;
 
 			file.Seek((int)customDataOffset);
-			file.Skip(2);	// skip number of fields, only care about diff name
-			
+			file.Skip(2);   // skip number of fields, only care about diff name
+
 			if (file.GetString(file.GetUInt16()) == "difficulty_name")
 			{
 				int length = 0;
@@ -317,36 +432,36 @@ public partial class MapParser : Node
 						length = (int)file.GetUInt32();
 						break;
 				}
-				
+
 				difficultyName = file.GetString(length);
 			}
-			
+
 			if (hasAudio)
 			{
 				file.Seek((int)audioByteOffset);
 				audioBuffer = file.Get((int)audioByteLength);
 			}
-			
+
 			if (hasCover)
 			{
 				file.Seek((int)coverByteOffset);
 				coverBuffer = file.Get((int)coverByteLength);
 			}
-			
+
 			file.Seek((int)markerByteOffset);
 
 			Note[] notes = new Note[noteCount];
-			
+
 			for (int i = 0; i < noteCount; i++)
 			{
 				int millisecond = (int)file.GetUInt32();
 
-				file.Skip(1);	// marker type, always note
+				file.Skip(1);   // marker type, always note
 
 				bool isQuantum = file.GetBool();
 				float x;
 				float y;
-				
+
 				if (isQuantum)
 				{
 					x = file.GetFloat();
@@ -360,14 +475,14 @@ public partial class MapParser : Node
 
 				notes[i] = new Note(0, millisecond, x - 1, -y + 1);
 			}
-			
+
 			Array.Sort(notes, new NoteComparer());
 
 			for (int i = 0; i < notes.Length; i++)
 			{
 				notes[i].Index = i;
 			}
-			
+
 			map = new(path, notes, id, artist, song, 0, mappers, difficulty, difficultyName, (int)mapLength, audioBuffer, coverBuffer);
 		}
 		catch (Exception exception)
