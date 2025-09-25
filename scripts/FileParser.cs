@@ -2,108 +2,111 @@ using System;
 using System.Text;
 using Godot;
 
-public class FileParser
+namespace Pheonyx
 {
-    public byte[] Buffer;
-    public int Pointer;
-    public long Length;
+	public class FileParser
+	{
+		public byte[] Buffer;
+		public int Pointer;
+		public long Length;
 
-    public FileParser(string path)
-    {
-        FileAccess file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+		public FileParser(string path)
+		{
+			var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
 
-        Length = (long)file.GetLength();
-        Buffer = file.GetBuffer(Length);
-        Pointer = 0;
+			Length = (long)file.GetLength();
+			Buffer = file.GetBuffer(Length);
+			Pointer = 0;
 
-        file.Close();
-    }
+			file.Close();
+		}
 
-    public FileParser(byte[] buffer)
-    {
-        Length = buffer.Length;
-        Buffer = buffer;
-        Pointer = 0;
-    }
+		public FileParser(byte[] buffer)
+		{
+			Length = buffer.Length;
+			Buffer = buffer;
+			Pointer = 0;
+		}
 
-    public byte[] Get(int length)
-    {
-        Pointer += length;
-        return Buffer[(Pointer - length) .. Pointer];
-    }
+		public byte[] Get(int length)
+		{
+			Pointer += length;
+			return Buffer[(Pointer - length)..Pointer];
+		}
 
-    public void Skip(int length)
-    {
-        Pointer += length;
-    }
+		public void Skip(int length)
+		{
+			Pointer += length;
+		}
 
-    public void Seek(int pointer)
-    {
-        Pointer = pointer;
-    }
-    
-    public string GetLine()
-    {
-        var line = string.Empty;
+		public void Seek(int pointer)
+		{
+			Pointer = pointer;
+		}
 
-        while (true)
-        {
-            Pointer++;
-            var character = Encoding.UTF8.GetString(Buffer, Pointer - 1, 1);
+		public string GetLine()
+		{
+			string line = string.Empty;
 
-            if (character == "\n")
-                break;
+			while (true)
+			{
+				Pointer++;
+				string character = Encoding.UTF8.GetString(Buffer, Pointer - 1, 1);
 
-            line += character;
-        }
+				if (character == "\n")
+					break;
 
-        return line;
-    }
+				line += character;
+			}
 
-    public string GetString(int length)
-    {
-        Pointer += length;
-        return Encoding.UTF8.GetString(Buffer, Pointer - length, length);
-    }
+			return line;
+		}
 
-    public bool GetBool()
-    {
-        Pointer += 1;
-        return BitConverter.ToBoolean(Buffer, Pointer - 1);
-    }
+		public string GetString(int length)
+		{
+			Pointer += length;
+			return Encoding.UTF8.GetString(Buffer, Pointer - length, length);
+		}
 
-    public float GetFloat()
-    {
-        Pointer += 4;
-        return BitConverter.ToSingle(Buffer, Pointer - 4);
-    }
+		public bool GetBool()
+		{
+			Pointer += 1;
+			return BitConverter.ToBoolean(Buffer, Pointer - 1);
+		}
 
-    public double GetDouble()
-    {
-        Pointer += 8;
-        return BitConverter.ToDouble(Buffer, Pointer - 8);
-    }
+		public float GetFloat()
+		{
+			Pointer += 4;
+			return BitConverter.ToSingle(Buffer, Pointer - 4);
+		}
 
-    public ushort GetUInt8()
-    {
-        return Get(1)[0];
-    }
+		public double GetDouble()
+		{
+			Pointer += 8;
+			return BitConverter.ToDouble(Buffer, Pointer - 8);
+		}
 
-    public ushort GetUInt16()
-    {
-        Pointer += 2;
-        return BitConverter.ToUInt16(Buffer, Pointer - 2);
-    }
+		public ushort GetUInt8()
+		{
+			return Get(1)[0];
+		}
 
-    public uint GetUInt32()
-    {
-        Pointer += 4;
-        return BitConverter.ToUInt32(Buffer, Pointer - 4);
-    }
+		public ushort GetUInt16()
+		{
+			Pointer += 2;
+			return BitConverter.ToUInt16(Buffer, Pointer - 2);
+		}
 
-    public ulong GetUInt64()
-    {
-        Pointer += 8;
-        return BitConverter.ToUInt64(Buffer, Pointer - 8);
-    }
+		public uint GetUInt32()
+		{
+			Pointer += 4;
+			return BitConverter.ToUInt32(Buffer, Pointer - 4);
+		}
+
+		public ulong GetUInt64()
+		{
+			Pointer += 8;
+			return BitConverter.ToUInt64(Buffer, Pointer - 8);
+		}
+	}
 }

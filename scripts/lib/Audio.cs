@@ -1,33 +1,34 @@
 using System.Text;
 using Godot;
 
-namespace Lib;
-
-public class Audio
+namespace Pheonyx.Lib
 {
-    public static AudioStream LoadStream(byte[] buffer)
+	public class Audio
 	{
-		AudioStream stream;
-
-		if (buffer == null || buffer.Length < 4)
+		public static AudioStream LoadStream(byte[] buffer)
 		{
-			FileAccess file = FileAccess.Open("res://sounds/quiet.mp3", FileAccess.ModeFlags.Read);
-			byte[] quietBuffer = file.GetBuffer((long)file.GetLength());
+			AudioStream stream;
 
-			file.Close();
+			if (buffer == null || buffer.Length < 4)
+			{
+				var file = FileAccess.Open("res://sounds/quiet.mp3", FileAccess.ModeFlags.Read);
+				byte[] quietBuffer = file.GetBuffer((long)file.GetLength());
 
-			return new AudioStreamMP3(){Data = quietBuffer};
+				file.Close();
+
+				return new AudioStreamMP3() { Data = quietBuffer };
+			}
+
+			if (Encoding.UTF8.GetString(buffer[0..4]) == "OggS")
+			{
+				stream = AudioStreamOggVorbis.LoadFromBuffer(buffer);
+			}
+			else
+			{
+				stream = new AudioStreamMP3() { Data = buffer };
+			}
+
+			return stream;
 		}
-
-		if (Encoding.UTF8.GetString(buffer[0..4]) == "OggS")
-		{
-			stream = AudioStreamOggVorbis.LoadFromBuffer(buffer);
-		}
-		else
-		{
-			stream = new AudioStreamMP3(){Data = buffer};
-		}
-
-		return stream;
 	}
 }

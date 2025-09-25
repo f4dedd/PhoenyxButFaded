@@ -1,29 +1,31 @@
 using Godot;
+using Pheonyx.Game;
 
-namespace Space;
-
-public partial class Grid : Node3D
+namespace Pheonyx.Spaces
 {
-    private double LastFrame = Time.GetTicksUsec();
-    private StandardMaterial3D TileMaterial;
-    private Environment Environment;
-
-    public Color Colour = Color.Color8(255, 255, 255);
-
-    public override void _Ready()
+    public partial class Grid : Node3D
     {
-        TileMaterial = (GetNode<MeshInstance3D>("Top").Mesh as PlaneMesh).Material as StandardMaterial3D;
-        Environment = GetNode<WorldEnvironment>("WorldEnvironment").Environment;
-    }
+        private double lastFrame = Time.GetTicksUsec();
+        private StandardMaterial3D tileMaterial;
+        private Environment environment;
 
-    public override void _Process(double delta)
-    {
-        ulong now = Time.GetTicksUsec();
-		delta = (now - LastFrame) / 1000000;
-		LastFrame = now;
-        Colour = Colour.Lerp(Runner.CurrentAttempt.LastHitColour, (float)delta * 8);
+        public Color Colour = Color.Color8(255, 255, 255);
 
-        TileMaterial.AlbedoColor = Colour;
-        TileMaterial.Uv1Offset += Vector3.Up * (float)delta * 3;
+        public override void _Ready()
+        {
+            tileMaterial = (GetNode<MeshInstance3D>("Top").Mesh as PlaneMesh).Material as StandardMaterial3D;
+            environment = GetNode<WorldEnvironment>("WorldEnvironment").Environment;
+        }
+
+        public override void _Process(double delta)
+        {
+            ulong now = Time.GetTicksUsec();
+            delta = (now - lastFrame) / 1000000;
+            lastFrame = now;
+            Colour = Colour.Lerp(Runner.CurrentAttempt.LastHitColour, (float)delta * 8);
+
+            tileMaterial.AlbedoColor = Colour;
+            tileMaterial.Uv1Offset += Vector3.Up * (float)delta * 3;
+        }
     }
 }

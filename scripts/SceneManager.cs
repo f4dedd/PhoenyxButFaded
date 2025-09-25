@@ -1,54 +1,59 @@
 using Godot;
 
-public partial class SceneManager : Node
+namespace Pheonyx
 {
-    private static Node Node;
-    private static bool SkipNextTransition = false;
+	public partial class SceneManager : Node
+	{
+		private static Node node;
+		private static bool skip_next_transition = false;
 
-    public static Node Scene;
+		public static Node Scene;
 
-    public override void _Ready()
-    {
-        Node = this;
+		public override void _Ready()
+		{
+			node = this;
 
-        Node.GetTree().Connect("node_added", Callable.From((Node child) => {
-            if (child.Name != "SceneMenu" && child.Name != "SceneGame" && child.Name != "SceneResults")
-            {
-                return;
-            }
+			node.GetTree().Connect("node_added", Callable.From((Node child) =>
+			{
+				if (child.Name != "SceneMenu" && child.Name != "SceneGame" && child.Name != "SceneResults")
+				{
+					return;
+				}
 
-            Scene = child;
+				Scene = child;
 
-            if (SkipNextTransition)
-            {
-                SkipNextTransition = false;
-                return;
-            }
+				if (skip_next_transition)
+				{
+					skip_next_transition = false;
+					return;
+				}
 
-            ColorRect inTransition = Scene.GetNode<ColorRect>("Transition");
-            inTransition.SelfModulate = Color.FromHtml("ffffffff");
-            Tween inTween = inTransition.CreateTween();
-            inTween.TweenProperty(inTransition, "self_modulate", Color.FromHtml("ffffff00"), 0.25).SetTrans(Tween.TransitionType.Quad);
-            inTween.Play();
-        }));
-    }
+				var inTransition = Scene.GetNode<ColorRect>("Transition");
+				inTransition.SelfModulate = Color.FromHtml("ffffffff");
+				var inTween = inTransition.CreateTween();
+				inTween.TweenProperty(inTransition, "self_modulate", Color.FromHtml("ffffff00"), 0.25).SetTrans(Tween.TransitionType.Quad);
+				inTween.Play();
+			}));
+		}
 
-    public static void Load(string path, bool skipTransition = false)
-    {
-        if (skipTransition)
-        {
-            SkipNextTransition = true;
-            Node.GetTree().ChangeSceneToFile(path);
-        }
-        else
-        {
-            ColorRect outTransition = Scene.GetNode<ColorRect>("Transition");
-            Tween outTween = outTransition.CreateTween();
-            outTween.TweenProperty(outTransition, "self_modulate", Color.FromHtml("ffffffff"), 0.25).SetTrans(Tween.TransitionType.Quad);
-            outTween.TweenCallback(Callable.From(() => {
-                Node.GetTree().ChangeSceneToFile(path);
-            }));
-            outTween.Play();
-        }
-    }
+		public static void Load(string path, bool skipTransition = false)
+		{
+			if (skipTransition)
+			{
+				skip_next_transition = true;
+				node.GetTree().ChangeSceneToFile(path);
+			}
+			else
+			{
+				var outTransition = Scene.GetNode<ColorRect>("Transition");
+				var outTween = outTransition.CreateTween();
+				outTween.TweenProperty(outTransition, "self_modulate", Color.FromHtml("ffffffff"), 0.25).SetTrans(Tween.TransitionType.Quad);
+				outTween.TweenCallback(Callable.From(() =>
+				{
+					node.GetTree().ChangeSceneToFile(path);
+				}));
+				outTween.Play();
+			}
+		}
+	}
 }

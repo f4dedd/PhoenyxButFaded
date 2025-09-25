@@ -1,110 +1,116 @@
 using System.Collections.Generic;
 using System.IO;
 using Godot;
-using Menu;
+using Pheonyx.Maps;
+using Pheonyx.Menu;
 
-public partial class SoundManager : Node
+namespace Pheonyx
 {
-	public static AudioStreamPlayer HitSound;
-	public static AudioStreamPlayer MissSound;
-	public static AudioStreamPlayer FailSound;
-	public static AudioStreamPlayer Song;
-
-	public delegate void JukeboxPlayedHandler(Map map);
-	public static event JukeboxPlayedHandler JukeboxPlayed;
-
-	public static string[] JukeboxQueue = [];
-	public static Dictionary<string, int> JukeboxQueueInverse = [];
-	public static int JukeboxIndex = 0;
-	public static bool JukeboxPaused = false;
-	public static ulong LastRewind = 0;
-	public static Map Map;
-
-	public override void _Ready()
+	public partial class SoundManager : Node
 	{
-		HitSound = new();
-		MissSound = new();
-		FailSound = new();
-		Song = new();
-		
-		HitSound.MaxPolyphony = 16;
+		public static AudioStreamPlayer HitSound;
+		public static AudioStreamPlayer MissSound;
+		public static AudioStreamPlayer FailSound;
+		public static AudioStreamPlayer Song;
 
-		AddChild(HitSound);
-		AddChild(MissSound);
-		AddChild(FailSound);
-		AddChild(Song);
+		public delegate void JukeboxPlayedHandler(Map map);
+		public static event JukeboxPlayedHandler JukeboxPlayed;
 
-		Song.Finished += () => {
-			switch (SceneManager.Scene.Name)
+		public static string[] JukeboxQueue = [];
+		public static Dictionary<string, int> JukeboxQueueInverse = [];
+		public static int JukeboxIndex = 0;
+		public static bool JukeboxPaused = false;
+		public static ulong LastRewind = 0;
+		public static Map Map;
+
+		public override void _Ready()
+		{
+			HitSound = new();
+			MissSound = new();
+			FailSound = new();
+			Song = new();
+
+
+			HitSound.MaxPolyphony = 16;
+
+			AddChild(HitSound);
+			AddChild(MissSound);
+			AddChild(FailSound);
+			AddChild(Song);
+
+			Song.Finished += () =>
 			{
-				case "SceneMenu":
-					JukeboxIndex++;
-					PlayJukebox(JukeboxIndex);
-					break;
-				case "SceneResults":
-					PlayJukebox(JukeboxIndex);
-					break;
-				default:
-					break;
+				switch (SceneManager.Scene.Name)
+				{
+					case "SceneMenu":
+						JukeboxIndex++;
+						PlayJukebox(JukeboxIndex);
+						break;
+					case "SceneResults":
+						PlayJukebox(JukeboxIndex);
+						break;
+					default:
+						break;
+				}
+			};
+		}
+
+		public static void PlayJukebox(int index = -1, bool setRichPresence = true)
+		{
+			index = index == -1 ? JukeboxIndex : index;
+
+			if (index >= JukeboxQueue.Length)
+			{
+				index = 0;
 			}
-		};
-	}
+			else if (index < 0)
+			{
+				index = JukeboxQueue.Length - 1;
+			}
 
-	public static void PlayJukebox(int index = -1, bool setRichPresence = true)
-	{
-		index = index == -1 ? JukeboxIndex : index;
+			if (JukeboxQueue.Length == 0)
+			{
+				return;
+			}
 
-		if (index >= JukeboxQueue.Length)
-		{
-			index = 0;
-		}
-		else if (index < 0)
-		{
-			index = JukeboxQueue.Length - 1;
-		}
+			Map = MapParser.Decode(JukeboxQueue[index], null, false);
 
-		if (JukeboxQueue.Length == 0)
-		{
-			return;
-		}
+			if (Map.AudioBuffer == null)
+			{
+				JukeboxIndex++;
+				PlayJukebox(JukeboxIndex);
+			}
 
-		Map = MapParser.Decode(JukeboxQueue[index], null, false);
+			JukeboxPlayed.Invoke(Map);
 
-		if (Map.AudioBuffer == null)
-		{
-			JukeboxIndex++;
-			PlayJukebox(JukeboxIndex);
-		}
+			if (SceneManager.Scene.Name == "SceneMenu")
+			{
+				MainMenu.Control.GetNode("Jukebox").GetNode<Label>("Title").Text = Map.PrettyTitle;
+			}
 
-		JukeboxPlayed.Invoke(Map);
+			Song.Stream = Lib.Audio.LoadStream(Map.AudioBuffer);
+			Song.Play();
 
-		if (SceneManager.Scene.Name == "SceneMenu")
-		{
-			MainMenu.Control.GetNode("Jukebox").GetNode<Label>("Title").Text = Map.PrettyTitle;
+			if (setRichPresence)
+			{
+				Phoenyx.Util.DiscordRPC.Call("Set", "state", $"Listening to {Map.PrettyTitle}");
+			}
 		}
 
-		Song.Stream = Lib.Audio.LoadStream(Map.AudioBuffer);
-		Song.Play();
-
-		if (setRichPresence)
+		public static void UpdateJukeboxQueue()
 		{
-			Phoenyx.Util.DiscordRPC.Call("Set", "state", $"Listening to {Map.PrettyTitle}");
+			JukeboxQueue = Directory.GetFiles($"{Phoenyx.Constants.USER_FOLDER}/maps");
+
+			for (int i = 0; i < JukeboxQueue.Length; i++)
+			{
+				JukeboxQueueInverse[JukeboxQueue[i].GetFile().GetBaseName()] = i;
+			}
 		}
-	}
 
-	public static void UpdateJukeboxQueue()
-	{
-		JukeboxQueue = Directory.GetFiles($"{Phoenyx.Constants.UserFolder}/maps");
-
-		for (int i = 0; i < JukeboxQueue.Length; i++)
+		public static void UpdateSounds()
 		{
-			JukeboxQueueInverse[JukeboxQueue[i].GetFile().GetBaseName()] = i;
+			HitSound.Stream = Lib.Audio.LoadStream(Phoenyx.Skin.HitSoundBuffer);
+			FailSound.Stream = Lib.Audio.LoadStream(Phoenyx.Skin.FailSoundBuffer);
 		}
-	}
-
-	public static void UpdateSounds()
-	{
-		HitSound.Stream = Lib.Audio.LoadStream(Phoenyx.Skin.HitSoundBuffer);
-		FailSound.Stream = Lib.Audio.LoadStream(Phoenyx.Skin.FailSoundBuffer);
 	}
 }
